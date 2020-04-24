@@ -9,6 +9,7 @@ import pyswarms as ps
 from pyswarms.utils.functions import single_obj as fx
 from scipy.optimize import differential_evolution
 from SwarmPackagePy import ba, fa, cso
+from scipy.stats import friedmanchisquare
 
 import numpy as np
 import pandas as pd
@@ -94,15 +95,22 @@ def run_algorithm(fun, algorithm):
 
 # creating a DataFrame to store the data
 stats = []
+fitness_matrix = []
 
-for function_name in [(ackley, [-32, 32]), (rastrigin, [-5.12, 5.12]), (sphere, [-10, 10])]:
-    for algorithm in ['de', 'pso-global', 'pso-local', 'firefly', 'cuckoo', 'bat']:
+function_list = [(ackley, [-32, 32]), (rastrigin, [-5.12, 5.12]), (sphere, [-10, 10])]
+algorithm_list = ['de', 'pso-global', 'pso-local', 'firefly', 'cuckoo', 'bat']
+
+for function_name in function_list:
+    for algorithm in algorithm_list:
         # creating a empty list to store all the results found for this combination
         fitness = []
     
         for i in range(30):
             # appending the results of the current run to the fitness list
             fitness += [run_algorithm(function_name, algorithm)[0]]
+        
+        # including the results in the matrix
+        fitness_matrix.append([function_name[0].__name__, algorithm, fitness])
         
         # getting the results out of the current combination
         stats.append([function_name[0].__name__, algorithm,
@@ -112,3 +120,19 @@ for function_name in [(ackley, [-32, 32]), (rastrigin, [-5.12, 5.12]), (sphere, 
 # creating a DataFrame (an easily manageable table) containing all the results
 df_stats = pd.DataFrame(stats, columns=['Benchmark', 'Algorithm', 'Min',
                                         'Max', 'Mean', 'Median', 'StdDev'])
+
+# generating the Friedman test results for each problem  
+# https://support.minitab.com/en-us/minitab-express/1/help-and-how-to/modeling-statistics/anova/how-to/friedman-test/interpret-the-results/key-results/
+stats_measurements = []
+for function_name in function_list:
+    measurements = []
+    for combination in fitness_matrix:
+        if combination[0] == function_name[0].__name__:
+            measurements.append(combination[2])
+    
+    _, pvalue = friedmanchisquare(*measurements)
+    stats_measurements.append([function_name[0].__name__, pvalue])
+
+# creating a DataFrame (an easily manageable table) containing all the results
+df_stats_measurements = pd.DataFrame(stats_measurements, 
+                                     columns=['Benchmark', 'Friedman p-value'])
